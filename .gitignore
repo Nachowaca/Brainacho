@@ -32,3 +32,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# 5-de-oro (Node)
+5-de-oro/node_modules/
+5-de-oro/data/_debug_raw.html
+

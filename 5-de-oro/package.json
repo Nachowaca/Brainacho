@@ -1,0 +1,15 @@
+{
+  "name": "5-de-oro-iterador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scraper + iterador de sorteos de 5 de Oro y Revancha (loteria.gub.uy)",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scripts/scrape-loteria.js",
+    "stats": "node scripts/stats.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}

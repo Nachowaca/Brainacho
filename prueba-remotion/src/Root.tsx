@@ -29,6 +29,16 @@ export const RemotionRoot: React.FC = () => {
         fps={30}
         width={1024}
         height={512}
+        defaultProps={{ musicSrc: "intro-music-cine.wav", sfxSrc: "intro-sfx.wav" }}
+      />
+      <Composition
+        id="IntroPlayFX"
+        component={IntroPlay}
+        durationInFrames={240}
+        fps={30}
+        width={1024}
+        height={512}
+        defaultProps={{ musicSrc: "", sfxSrc: "intro-fx.wav" }}
       />
     </>
   );

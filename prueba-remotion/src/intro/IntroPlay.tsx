@@ -42,7 +42,12 @@ const DUST = Array.from({ length: 28 }, (_, i) => ({
   ph: random(`dp${i}`) * Math.PI * 2,
 }));
 
-export const IntroPlay: React.FC = () => {
+export type IntroPlayProps = {
+  readonly musicSrc: string; // file in public/, empty = no music
+  readonly sfxSrc: string; // file in public/, empty = no effects
+};
+
+export const IntroPlay: React.FC<IntroPlayProps> = ({ musicSrc, sfxSrc }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
@@ -92,8 +97,8 @@ export const IntroPlay: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: BG, overflow: "hidden" }}>
-      <Audio name="Musica" src={staticFile("intro-music-cine.wav")} volume={0.7} premountFor={fps} />
-      <Audio name="Efectos" src={staticFile("intro-sfx.wav")} volume={1} premountFor={fps} />
+      {musicSrc ? <Audio name="Musica" src={staticFile(musicSrc)} volume={0.7} premountFor={fps} /> : null}
+      {sfxSrc ? <Audio name="Efectos" src={staticFile(sfxSrc)} volume={1} premountFor={fps} /> : null}
       <AbsoluteFill
         style={{
           background:

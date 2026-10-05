@@ -92,7 +92,7 @@ export const IntroPlay: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: BG, overflow: "hidden" }}>
-      <Audio name="Musica" src={staticFile("intro-music.wav")} volume={0.55} premountFor={fps} />
+      <Audio name="Musica" src={staticFile("intro-music-cine.wav")} volume={0.7} premountFor={fps} />
       <Audio name="Efectos" src={staticFile("intro-sfx.wav")} volume={1} premountFor={fps} />
       <AbsoluteFill
         style={{

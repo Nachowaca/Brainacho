@@ -225,6 +225,9 @@ def hz(name):
     if rest.startswith("#"):
         semis += 1
         rest = rest[1:]
+    elif rest.startswith("b"):
+        semis -= 1
+        rest = rest[1:]
     octave = int(rest)
     return 440 * 2 ** ((semis + (octave - 4) * 12) / 12)
 
@@ -279,6 +282,129 @@ def build_music():
     return mix / np.max(np.abs(mix)) * 0.8
 
 
+# ------------------------------------------------- MUSIC (cinematic)
+def strings(freqs, start, dur, gain, att=0.7, rel=0.8, bright=6, vib=6.0, trem=False, pan=0.0):
+    """Section of detuned saws with slow vibrato; `bright` = highest harmonic."""
+    n = int(SR * (dur + rel))
+    t = tt(n)
+    out = np.zeros(n)
+    for f in freqs:
+        for cents in (-12, -4, 4, 12):
+            ph = rng.uniform(0, 2 * np.pi)
+            vibr = vib * np.sin(2 * np.pi * 5.4 * t + ph) * np.minimum(1, t / 1.2)
+            fi = f * 2 ** ((cents + vibr) / 1200)
+            phase = 2 * np.pi * np.cumsum(fi) / SR + ph
+            for k in range(1, bright + 1):
+                out += np.sin(k * phase) / k
+    env = np.minimum(1, t / att) * np.where(t > dur, np.clip(1 - (t - dur) / rel, 0, 1), 1)
+    sig = out * env ** 1.3 / (len(freqs) * 4)
+    if trem:  # fast bowed tremolo, the classic suspense ostinato
+        sig *= 0.55 + 0.45 * np.sin(2 * np.pi * 11 * t) ** 2
+    return sig
+
+
+def timpani(f=73.4, dur=1.6):
+    t = tt(int(SR * dur))
+    pitch = f * (1 + 0.28 * np.exp(-t / 0.05))
+    body = np.sin(2 * np.pi * np.cumsum(pitch) / SR) * np.exp(-t / 0.55)
+    body += 0.4 * np.sin(2 * np.pi * np.cumsum(pitch * 1.5) / SR) * np.exp(-t / 0.25)
+    skin = lowpass(noise(len(t)), 700) * np.exp(-t / 0.035) * 0.9
+    return (body + skin) * np.minimum(1, t / 0.002)
+
+
+def brass(freqs, start, dur, gain, pan=0.0):
+    n = int(SR * (dur + 0.5))
+    t = tt(n)
+    raw = np.zeros(n)
+    for f in freqs:
+        for cents in (-5, 5):
+            ph = rng.uniform(0, 2 * np.pi)
+            for k in range(1, 15):
+                raw += np.sin(2 * np.pi * f * 2 ** (cents / 1200) * k * t + ph * k) / k ** 0.9
+    dark, light = lowpass(raw, 900), lowpass(raw, 5200, 1)
+    mix = np.clip(t / 0.35, 0, 1)
+    sig = dark * (1 - mix) + light * mix
+    env = np.minimum(1, t / 0.05) * np.where(t > dur, np.clip(1 - (t - dur) / 0.5, 0, 1), 1)
+    return sig * env / (len(freqs) * 2)
+
+
+def choir(freqs, dur, att=1.2):
+    n = int(SR * dur)
+    t = tt(n)
+    raw = np.zeros(n)
+    for f in freqs:
+        for cents in (-9, 0, 9):
+            ph = rng.uniform(0, 2 * np.pi)
+            vibr = 7 * np.sin(2 * np.pi * 5.8 * t + ph)
+            phase = 2 * np.pi * np.cumsum(f * 2 ** ((cents + vibr) / 1200)) / SR
+            for k in range(1, 12):
+                raw += np.sin(k * phase + ph) / k
+    voice = sum(bandpass(raw, lo, hi) * g for lo, hi, g in [(650, 950, 1.0), (1000, 1350, 0.55), (2500, 3200, 0.25)])
+    env = np.minimum(1, t / att) ** 1.5 * np.clip((dur - t) / 0.3, 0, 1)
+    return voice * env / (len(freqs) * 3)
+
+
+def cymbal(dur, peak_at):
+    n = int(SR * dur)
+    t = tt(n)
+    x = bandpass(noise(n), 5500, 15000)
+    env = np.where(t < peak_at, (t / peak_at) ** 2.5, np.exp(-(t - peak_at) / 0.9))
+    return x * env
+
+
+def build_music_cine():
+    D = lambda name: hz(name)
+    str_bus = np.zeros((N, 2))
+    low = np.zeros((N, 2))
+    perc = np.zeros((N, 2))
+    horns = np.zeros((N, 2))
+    voices = np.zeros((N, 2))
+    harp = np.zeros((N, 2))
+
+    # --- 0.0-2.8 s  loading: D minor, low and ominous, tremolo strings creeping in
+    place(low, strings([D("D2"), D("A2")], 0, 3.0, 1.0, att=1.0, rel=0.5, bright=5), 0.0, gain=0.9)
+    place(str_bus, strings([D("D3"), D("F3"), D("A3")], 0, 2.9, 1.0, att=1.4, rel=0.4, bright=8, trem=True), 0.4, gain=0.55, pan=-0.3)
+    place(str_bus, strings([D("A3"), D("D4")], 0, 2.4, 1.0, att=1.6, rel=0.4, bright=8, trem=True), 0.9, gain=0.4, pan=0.3)
+    for i, tm in enumerate([0.0, 1.0, 1.73, 2.4]):  # soft pulse that ties to the two stalls
+        place(perc, timpani(73.4 * (1.0 if i % 2 == 0 else 1.122)), tm, gain=0.25 + 0.06 * i)
+
+    # --- 2.8-4.2  100 % and the play button: lifts to B-flat, harp and choir bloom
+    place(low, strings([D("Bb1"), D("F2")], 0, 1.5, 1.0, att=0.5, rel=0.5, bright=5), 2.75, gain=0.9)
+    place(str_bus, strings([D("Bb3"), D("D4"), D("F4"), D("Bb4")], 0, 1.7, 1.0, att=0.7, rel=0.5, bright=10, vib=7), 2.8, gain=0.85, pan=-0.2)
+    place(voices, choir([D("D4"), D("F4"), D("Bb4")], 2.6), 3.45, gain=0.8)
+    for k, name in enumerate(["D4", "F4", "A4", "D5", "F5", "A5", "D6"]):
+        place(harp, piano(D(name), 1.8), 3.47 + k * 0.05, gain=0.2, pan=-0.5 + 0.17 * k)
+
+    # --- 4.2-5.07  the cursor arrives and clicks: dominant (A major) tension + timpani roll
+    place(low, strings([D("A1"), D("E2")], 0, 1.0, 1.0, att=0.3, rel=0.3, bright=5), 4.15, gain=0.95)
+    place(str_bus, strings([D("A3"), D("C#4"), D("E4"), D("A4")], 0, 1.0, 1.0, att=0.5, rel=0.3, bright=10, vib=8, trem=True), 4.2, gain=0.9, pan=0.1)
+    roll = np.linspace(4.2, 5.04, 22)
+    for i, tm in enumerate(roll):
+        place(perc, timpani(55.0 + 0.0 * i, 0.5), tm, gain=0.1 + 0.55 * (i / len(roll)) ** 1.6, pan=-0.2 if i % 2 else 0.2)
+
+    # --- 5.07-6.0  the click opens the door: D MAJOR, full orchestra
+    t_hit = 5.07
+    place(perc, timpani(73.4, 1.4), t_hit, gain=1.15)
+    place(perc, timpani(55.0, 1.4), t_hit, gain=0.85)
+    place(perc, cymbal(1.8, 0.75) * 0.0, t_hit - 0.75, gain=0.0)
+    place(perc, cymbal(2.5, 0.85), t_hit - 0.85, gain=0.55)
+    place(low, strings([D("D1"), D("D2"), D("A2")], 0, 0.9, 1.0, att=0.05, rel=0.4, bright=6), t_hit, gain=1.15)
+    place(str_bus, strings([D("D3"), D("A3"), D("D4"), D("F#4"), D("A4"), D("D5")], 0, 0.9, 1.0, att=0.12, rel=0.4, bright=12, vib=9), t_hit, gain=1.4)
+    place(horns, brass([D("D3"), D("A3"), D("D4"), D("F#4")], 0, 0.9, 1.0), t_hit, gain=1.2, pan=-0.15)
+    place(horns, brass([D("A4"), D("D5")], 0, 0.9, 1.0), t_hit + 0.02, gain=0.95, pan=0.2)
+    place(voices, choir([D("D4"), D("F#4"), D("A4"), D("D5")], 1.2, att=0.2), t_hit, gain=1.0)
+
+    # --- mix: big hall reverb on everything but the low end
+    wet = str_bus * 1.0 + voices * 1.3 + horns * 1.0 + harp * 1.4 + perc * 0.9
+    wet = reverb(wet, wet=0.42, size=1.9)
+    mix = wet + low * 0.8
+    fade = np.ones(N)
+    fade[-int(0.08 * SR):] = np.linspace(1, 0, int(0.08 * SR))
+    fade[: int(0.04 * SR)] = np.linspace(0, 1, int(0.04 * SR))
+    mix *= fade[:, None]
+    return mix / np.max(np.abs(mix)) * 0.85
+
+
 def write(name, buf):
     pcm = (np.clip(buf, -1, 1) * 32767).astype("<i2")
     with wave.open(str(OUT / name), "wb") as w:
@@ -293,3 +419,4 @@ if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
     write("intro-sfx.wav", build_sfx())
     write("intro-music.wav", build_music())
+    write("intro-music-cine.wav", build_music_cine())

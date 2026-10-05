@@ -11,6 +11,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { loadFont } from "@remotion/fonts";
+import { Audio } from "@remotion/media";
 
 loadFont({ family: "Oswald", url: staticFile("Oswald-SemiBold.woff2"), weight: "600" });
 loadFont({ family: "Inter", url: staticFile("Inter-Medium.woff2"), weight: "500" });
@@ -91,6 +92,8 @@ export const IntroPlay: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: BG, overflow: "hidden" }}>
+      <Audio name="Musica" src={staticFile("intro-music.wav")} volume={0.55} premountFor={fps} />
+      <Audio name="Efectos" src={staticFile("intro-sfx.wav")} volume={1} premountFor={fps} />
       <AbsoluteFill
         style={{
           background:

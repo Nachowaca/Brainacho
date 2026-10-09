@@ -13,7 +13,7 @@
   "build": {
     "appId": "com.brainacho.app",
     "productName": "Brainacho",
-    "afterPack": "build/afterPack.js",
+    "afterPack": "scripts/afterPack.js",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "files": [
       "src/**/*",

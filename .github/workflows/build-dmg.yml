@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [claude/brave-planck-0grxwg]
-    paths: ['src/**', 'build/**', 'package.json', 'package-lock.json', '.github/workflows/build-dmg.yml']
+    paths: ['src/**', 'scripts/**', 'package.json', 'package-lock.json', '.github/workflows/build-dmg.yml']
 
 jobs:
   dmg:

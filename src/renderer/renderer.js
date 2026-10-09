@@ -69,7 +69,7 @@ function drawSpectrum() {
       let m = -140;
       for (let j = 0; j < step; j++) m = Math.max(m, freqBuf[i * step + j + 1]);
       const h = Math.max(1, ((m + 100) / 70) * c.height);
-      g.fillStyle = '#7c9cff';
+      g.fillStyle = i % 2 ? '#ff7a1a' : '#ffa24d';
       g.fillRect(i * w + 1, c.height - h, w - 2, h);
     }
   }

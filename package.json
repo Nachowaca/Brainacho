@@ -1,0 +1,27 @@
+{
+  "name": "brainacho",
+  "productName": "Brainacho",
+  "version": "0.1.0",
+  "description": "Termómetro de energía del espacio de trabajo: ruido, pausas y ritmo del día.",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.brainacho.app",
+    "mac": {
+      "category": "public.app-category.healthcare-fitness",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Brainacho mide el nivel de ruido de tu espacio. Nunca graba audio: solo calcula decibeles."
+      }
+    },
+    "files": ["src/**/*", "package.json"]
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

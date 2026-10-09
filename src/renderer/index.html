@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+  <title>Brainacho</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="drag">
+    <h1>Brainacho <span>termómetro de energía</span></h1>
+  </header>
+
+  <main>
+    <section class="hero card">
+      <div class="ring" id="ring">
+        <div class="ring-inner">
+          <div id="score">--</div>
+          <div id="label">midiendo…</div>
+        </div>
+      </div>
+      <div class="parts">
+        <div class="part"><span>Ruido</span><div class="bar"><i id="p-noise"></i></div></div>
+        <div class="part"><span>Pausas</span><div class="bar"><i id="p-sit"></i></div></div>
+        <div class="part"><span>Ritmo del día</span><div class="bar"><i id="p-rhythm"></i></div></div>
+        <p id="mic-warning" class="warn" hidden>Sin micrófono: el puntaje usa solo pausas y hora del día. Habilitalo en Ajustes del Sistema → Privacidad → Micrófono.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Ruido ahora</h2>
+        <div class="big"><span id="db">--</span> <small>dB aprox.</small></div>
+        <div class="meter"><i id="meter"></i></div>
+        <canvas id="spectrum" width="400" height="70"></canvas>
+        <p class="muted" id="noise-note">&nbsp;</p>
+      </div>
+
+      <div class="card">
+        <h2>Tu cuerpo</h2>
+        <div class="big"><span id="sit">0</span> <small>min sin pausa</small></div>
+        <ul class="stats">
+          <li><b id="active">0</b> min activo hoy</li>
+          <li><b id="breaks">0</b> pausas reales</li>
+          <li><b id="silence">0</b> min de silencio</li>
+          <li><b id="loud">0</b> min de ruido fuerte</li>
+        </ul>
+        <button id="break-btn">Hice una pausa</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Tu día, hora por hora <small class="muted">(actividad)</small></h2>
+      <div id="hours" class="hours"></div>
+      <p id="best" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>El coach opina</h2>
+      <ul id="log" class="log"><li class="muted">Todavía no tengo nada para decirte. Trabajá tranquilo.</li></ul>
+    </section>
+
+    <section class="card settings">
+      <h2>Ajustes</h2>
+      <label><input type="checkbox" id="notif" /> Notificaciones del coach</label>
+      <div class="calib">
+        <label for="ref">Calibrar: medí con otro sonómetro (ej. app del celu) y poné el valor</label>
+        <input id="ref" type="number" min="20" max="110" placeholder="dB" />
+        <button id="calib-btn">Calibrar</button>
+        <span id="calib-out" class="muted"></span>
+      </div>
+      <p class="muted">Privacidad: Brainacho nunca graba audio. Solo calcula decibeles y los guarda como números en tu Mac.
+      Sin calibrar, los dB son una estimación relativa, no un sonómetro.</p>
+    </section>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

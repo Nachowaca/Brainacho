@@ -138,8 +138,77 @@ test('store: guarda y recupera días y ajustes', () => {
   store.saveDay(day);
   assert.strictEqual(store.loadDay('2026-10-09').breaks, 3);
   assert.strictEqual(store.listDays().length, 1);
-  assert.deepStrictEqual(store.loadSettings(), { offsetDb: 90, notifications: true });
+  assert.deepStrictEqual(store.loadSettings(), { offsetDb: 90, notifications: true, micConsent: null });
   store.saveSettings({ offsetDb: 85, notifications: false });
   assert.strictEqual(store.loadSettings().offsetDb, 85);
   fs.rmSync(dir, { recursive: true });
+});
+
+const { SocialDetector, countSwings } = require('../src/core/social');
+
+// Simula un ambiente: 60 s de oficina tranquila (40 dB) y luego la secuencia pedida.
+function room() {
+  const det = new SocialDetector({ rng: () => 0 });
+  let t = at(10);
+  const step = (db, voice = false, levels = []) => det.tick((t += 1000), { db, voice, levels });
+  for (let i = 0; i < 70; i++) step(40);
+  return { det, step };
+}
+const collect = (step, seq) => seq.flatMap(([db, voice, levels]) => step(db, voice, levels).events.map((e) => e.id));
+const pulsing = [50, 62, 50, 62, 50, 62, 50, 62, 50, 62];
+
+test('social: countSwings distingue risa (pulsos) de grito sostenido', () => {
+  assert.ok(countSwings(pulsing) >= 3);
+  assert.strictEqual(countSwings([70, 70, 71, 70, 70, 71, 70, 70, 70, 70]), 0);
+});
+
+test('social: no juzga durante el calentamiento', () => {
+  const det = new SocialDetector();
+  const r = det.tick(at(10), { db: 80, voice: true, levels: pulsing });
+  assert.deepStrictEqual(r.events, []);
+});
+
+test('social: ráfaga corta pulsante => risa', () => {
+  const { step } = room();
+  const ids = collect(step, [[58, true, pulsing], [58, true, pulsing], [40], [40]]);
+  assert.deepStrictEqual(ids, ['laugh']);
+});
+
+test('social: voz alta sostenida => discusión (una sola vez por cooldown)', () => {
+  const { step } = room();
+  const seq = Array.from({ length: 12 }, () => [72, true, [72, 73, 72, 72, 73, 72, 72, 73, 72, 72]]);
+  const ids = collect(step, seq);
+  assert.deepStrictEqual(ids, ['argument']);
+});
+
+test('social: remate seguido de silencio => silencio incómodo; con risa no', () => {
+  const a = room();
+  const flat = [58, 58, 58, 58, 58, 58, 58, 58, 58, 58];
+  assert.deepStrictEqual(collect(a.step, [[58, true, flat], [58, true, flat], [40], [40], [40], [40], [40]]), ['awkward']);
+  const b = room();
+  const ids = collect(b.step, [[58, true, flat], [58, true, flat], [40], [60, false, pulsing], [60, false, pulsing], [40], [40], [40], [40], [40]]);
+  assert.ok(!ids.includes('awkward'), ids.join());
+});
+
+test('social: voces fuertes durante un minuto => tensión, y el humor del mood sube', () => {
+  const { det, step } = room();
+  const seq = Array.from({ length: 60 }, () => [64, true, [64, 64, 64, 64, 64, 64, 64, 64, 64, 64]]);
+  const ids = collect(step, seq);
+  assert.ok(ids.includes('tension'), ids.join());
+  assert.ok(det.mood().index >= 50, JSON.stringify(det.mood()));
+});
+
+test('social: sin micrófono resetea y no inventa eventos', () => {
+  const { det } = room();
+  assert.deepStrictEqual(det.tick(at(11), { db: null }).events, []);
+});
+
+test('session: recordEvent suma al contador del día', () => {
+  const s = new Session();
+  s.tick(at(9), { db: 40 });
+  s.recordEvent('laugh');
+  s.recordEvent('laugh');
+  s.recordEvent('awkward');
+  const { snapshot } = s.tick(at(9, 0, 1), { db: 40 });
+  assert.deepStrictEqual(snapshot.social, { laughs: 2, awkward: 1, arguments: 0, tensions: 0 });
 });

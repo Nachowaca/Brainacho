@@ -14,6 +14,7 @@ function emptyDay(date) {
     date,
     seconds: { total: 0, active: 0, idle: 0, measured: 0, silence: 0, calm: 0, moderate: 0, loud: 0, voice: 0 },
     breaks: 0,
+    social: { laughs: 0, awkward: 0, arguments: 0, tensions: 0 },
     peakDb: null,
     hourly: Array.from({ length: 24 }, () => ({ sec: 0, active: 0, dbSum: 0, dbN: 0 })),
   };
@@ -35,6 +36,12 @@ class Session {
 
   load(day) {
     this.day = day;
+  }
+
+  // Cuenta un evento del clima del grupo (ver social.js) en el día actual.
+  recordEvent(id) {
+    const key = { laugh: 'laughs', awkward: 'awkward', argument: 'arguments', tension: 'tensions' }[id];
+    if (key && this.day) this.day.social[key] += 1;
   }
 
   markBreak() {
@@ -120,6 +127,7 @@ class Session {
       measuredMin: d.seconds.measured / 60,
       voiceMin: d.seconds.voice / 60,
       breaks: d.breaks,
+      social: { ...d.social },
       peakDb: d.peakDb,
       hourly: d.hourly.map((x) => ({
         activePct: x.sec > 0 ? x.active / x.sec : 0,

@@ -2,15 +2,16 @@
 
 const $ = (id) => document.getElementById(id);
 const FFT_SIZE = 2048;
-let analyser, audioCtx, timeBuf, freqBuf;
+let analyser, audioCtx, timeBuf, freqBuf, stream, sampleTimer;
 let micRunning = false;
+let rafStarted = false;
 
 // ---------- Audio: solo se calculan números, el sonido nunca se guarda ni se envía ----------
 async function startMic() {
   if (micRunning) return;
   if (!(await window.brainacho.micAccess())) return;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
     audioCtx = new AudioContext();
@@ -23,16 +24,26 @@ async function startMic() {
     freqBuf = new Float32Array(analyser.frequencyBinCount);
     micRunning = true;
     stream.getAudioTracks()[0].addEventListener('ended', () => { micRunning = false; });
-    setInterval(sampleAudio, 100);
-    requestAnimationFrame(drawSpectrum);
+    sampleTimer = setInterval(sampleAudio, 100);
+    if (!rafStarted) { rafStarted = true; requestAnimationFrame(drawSpectrum); }
   } catch (err) {
     console.warn('Micrófono no disponible:', err.message);
   }
 }
 
+function stopMic() {
+  if (!micRunning) return;
+  micRunning = false;
+  clearInterval(sampleTimer);
+  stream.getTracks().forEach((t) => t.stop());
+  audioCtx.close();
+  $('meter').style.width = '0';
+}
+
 let energyAcc = 0;
 let accN = 0;
 let lastSend = 0;
+let levels = []; // nivel cada 100 ms del último segundo: de ahí salen las risas y los gritos
 
 function sampleAudio() {
   analyser.getFloatTimeDomainData(timeBuf);
@@ -41,17 +52,17 @@ function sampleAudio() {
   energyAcc += sum / timeBuf.length;
   accN += 1;
 
-  const now = performance.now();
-  const instRms = Math.sqrt(sum / timeBuf.length);
-  const instDb = 20 * Math.log10(Math.max(instRms, 1e-8));
+  const instDb = 20 * Math.log10(Math.max(Math.sqrt(sum / timeBuf.length), 1e-8));
+  levels.push(instDb);
   $('meter').style.width = `${Math.min(100, Math.max(0, ((instDb + 90) / 70) * 100))}%`;
 
+  const now = performance.now();
   if (now - lastSend >= 1000) {
     analyser.getFloatFrequencyData(freqBuf);
     // Promedio en energía del último segundo => dBFS.
     const dbfs = 10 * Math.log10(Math.max(energyAcc / accN, 1e-16));
-    window.brainacho.sendAudio({ dbfs, bins: freqBuf.slice(), sampleRate: audioCtx.sampleRate, fftSize: FFT_SIZE });
-    energyAcc = 0; accN = 0; lastSend = now;
+    window.brainacho.sendAudio({ dbfs, levels: levels.slice(-10), bins: freqBuf.slice(), sampleRate: audioCtx.sampleRate, fftSize: FFT_SIZE });
+    energyAcc = 0; accN = 0; lastSend = now; levels = [];
   }
 }
 
@@ -95,7 +106,7 @@ function setBar(id, v) {
 
 function render(state) {
   if (!state) return;
-  const { snapshot: s, energy, coach, micOk } = state;
+  const { snapshot: s, energy, micOk, settings } = state;
   $('score').textContent = energy.score;
   $('label').textContent = energy.label;
   $('ring').style.setProperty('--p', energy.score);
@@ -103,7 +114,12 @@ function render(state) {
   setBar('p-noise', energy.parts.noise);
   setBar('p-sit', energy.parts.sit);
   setBar('p-rhythm', energy.parts.rhythm);
-  $('mic-warning').hidden = micOk;
+
+  const warn = $('mic-warning');
+  warn.hidden = micOk || $('onboarding').hidden === false;
+  warn.textContent = settings.micConsent
+    ? 'Sin señal del micrófono: el puntaje usa solo pausas y hora del día. Revisá Ajustes del Sistema → Privacidad → Micrófono.'
+    : 'Micrófono apagado: el puntaje usa solo pausas y hora del día. Activalo en Ajustes para leer el clima del grupo.';
 
   $('db').textContent = s.db == null ? '--' : fmt(s.db);
   $('noise-note').textContent = s.noiseClass ? NOISE_NOTES[s.noiseClass] : ' ';
@@ -112,10 +128,26 @@ function render(state) {
   $('breaks').textContent = s.breaks;
   $('silence').textContent = fmt(s.silenceMin);
   $('loud').textContent = fmt(s.loudMin);
-  $('notif').checked = state.settings.notifications;
+  $('notif').checked = settings.notifications;
+  $('mic-toggle').checked = !!settings.micConsent;
 
+  renderClimate(state);
   renderHours(s);
-  if (coach) addLog(coach);
+  if (state.coach) addLog(state.coach, 'coach');
+  (state.events || []).forEach((e) => addLog(e, 'clima'));
+}
+
+function renderClimate({ snapshot: s, mood, settings }) {
+  const on = settings.micConsent && mood && mood.index != null;
+  $('mood-label').textContent = settings.micConsent ? mood.label : 'Micrófono apagado';
+  $('mood-fill').style.width = `${on ? 100 - mood.index : 100}%`;
+  $('c-laughs').textContent = s.social.laughs;
+  $('c-awkward').textContent = s.social.awkward;
+  $('c-arguments').textContent = s.social.arguments;
+  $('c-tensions').textContent = s.social.tensions;
+  $('climate-note').textContent = settings.micConsent
+    ? 'Se estima por volumen, ritmo y voces. No entiende palabras ni graba nada: puede equivocarse, tomalo como una pista.'
+    : 'Activá el micrófono en Ajustes para leer el clima del grupo.';
 }
 
 function renderHours(s) {
@@ -136,9 +168,10 @@ function renderHours(s) {
 }
 
 const seen = new Set();
-function addLog(msg) {
-  if (seen.has(msg.at)) return;
-  seen.add(msg.at);
+function addLog(msg, kind) {
+  const key = `${msg.id || kind}-${msg.at}`;
+  if (seen.has(key)) return;
+  seen.add(key);
   const log = $('log');
   if (log.firstChild && log.firstChild.classList.contains('muted')) log.innerHTML = '';
   const li = document.createElement('li');
@@ -155,6 +188,16 @@ async function loadInsights() {
     : `Tus horas ideales aparecen con 3 días de datos (llevás ${r.days}). Mientras tanto, uso un ritmo promedio.`;
 }
 
+// ---------- Inicio: consentimiento del micrófono ----------
+async function chooseMic(on) {
+  await window.brainacho.setMicConsent(on);
+  $('onboarding').hidden = true;
+  if (on) startMic(); else stopMic();
+}
+
+$('ob-yes').addEventListener('click', () => chooseMic(true));
+$('ob-no').addEventListener('click', () => chooseMic(false));
+$('mic-toggle').addEventListener('change', (e) => chooseMic(e.target.checked));
 $('break-btn').addEventListener('click', () => window.brainacho.markBreak());
 $('notif').addEventListener('change', (e) => window.brainacho.setNotifications(e.target.checked));
 $('calib-btn').addEventListener('click', async () => {
@@ -162,8 +205,13 @@ $('calib-btn').addEventListener('click', async () => {
   $('calib-out').textContent = off == null ? 'Poné un valor entre 20 y 110 con el micrófono activo.' : `Listo (offset ${off} dB).`;
 });
 
-window.brainacho.onState(render);
-window.brainacho.getState().then(render);
-loadInsights();
-setInterval(loadInsights, 10 * 60 * 1000);
-startMic();
+async function init() {
+  const settings = await window.brainacho.getSettings();
+  if (settings.micConsent == null) $('onboarding').hidden = false;
+  else if (settings.micConsent) startMic();
+  window.brainacho.onState(render);
+  render(await window.brainacho.getState());
+  loadInsights();
+  setInterval(loadInsights, 10 * 60 * 1000);
+}
+init();

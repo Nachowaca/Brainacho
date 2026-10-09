@@ -42,3 +42,32 @@ button:hover { filter: brightness(1.1); }
 input[type=number] { width: 90px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #000; color: var(--text); }
 input[type=number]:focus { outline: 1px solid var(--accent); }
 input[type=checkbox] { accent-color: var(--accent); }
+
+/* Inicio / consentimiento */
+.overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 20%, #2a1608 0%, #000 70%); }
+.overlay[hidden] { display: none; }
+.dialog { max-width: 520px; width: 100%; padding: 28px; border-radius: 18px; border: 1px solid rgba(255,122,26,.4);
+  background: linear-gradient(155deg, #1f1710 0%, #090706 100%); box-shadow: 0 20px 60px rgba(255,122,26,.12), 0 8px 24px rgba(0,0,0,.6); }
+.dialog .logo { font-size: 40px; }
+.dialog h2 { margin-bottom: 6px; }
+.dialog .ask { font-size: 20px; font-weight: 700; margin: 0 0 14px; color: var(--text); }
+.detects { list-style: none; padding: 0; margin: 8px 0 16px; display: grid; gap: 6px; }
+.detects li { padding: 8px 12px; border-radius: 8px; background: rgba(255,122,26,.08); border-left: 3px solid var(--accent); }
+.promise { padding: 12px 14px; border-radius: 10px; background: #000; border: 1px solid var(--line); color: var(--muted); margin-bottom: 12px; }
+.promise b { color: var(--accent-2); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+button.ghost:hover { color: var(--text); border-color: var(--accent); }
+
+/* Clima del grupo */
+.mood-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.mood { font-size: 26px; font-weight: 700; min-width: 190px; color: var(--accent-2); }
+.mood-bar { position: relative; flex: 1; min-width: 200px; height: 10px; border-radius: 99px; overflow: hidden;
+  background: linear-gradient(90deg, #4ade80, #fde047 45%, #ff7a1a 72%, #f87171); }
+.mood-bar i { position: absolute; right: 0; top: 0; bottom: 0; width: 100%; background: #0a0807; transition: width .6s; }
+.counters { list-style: none; padding: 0; margin: 14px 0 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 760px) { .counters { grid-template-columns: 1fr 1fr; } }
+.counters li { padding: 10px 12px; border-radius: 10px; background: rgba(255,122,26,.07); border: 1px solid var(--line); display: flex; flex-direction: column; }
+.counters b { font-size: 26px; color: var(--accent-2); line-height: 1.1; }
+.counters span { color: var(--muted); font-size: 12px; }

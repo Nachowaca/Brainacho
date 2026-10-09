@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('brainacho', {
   sendAudio: (sample) => ipcRenderer.send('audio', sample),
   micAccess: () => ipcRenderer.invoke('mic-access'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setMicConsent: (on) => ipcRenderer.invoke('set-mic-consent', on),
   getState: () => ipcRenderer.invoke('get-state'),
   getInsights: () => ipcRenderer.invoke('get-insights'),
   markBreak: () => ipcRenderer.invoke('mark-break'),

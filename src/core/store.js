@@ -24,7 +24,7 @@ class Store {
     try {
       const raw = JSON.parse(fs.readFileSync(path.join(this.daysDir, `${date}.json`), 'utf8'));
       const base = emptyDay(date);
-      return { ...base, ...raw, seconds: { ...base.seconds, ...raw.seconds } };
+      return { ...base, ...raw, seconds: { ...base.seconds, ...raw.seconds }, social: { ...base.social, ...raw.social } };
     } catch {
       return null;
     }
@@ -36,7 +36,7 @@ class Store {
   }
 
   loadSettings() {
-    const defaults = { offsetDb: 90, notifications: true };
+    const defaults = { offsetDb: 90, notifications: true, micConsent: null };
     try {
       return { ...defaults, ...JSON.parse(fs.readFileSync(this.settingsFile, 'utf8')) };
     } catch {

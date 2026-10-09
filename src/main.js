@@ -7,6 +7,7 @@ const { dbfsToDb, voiceBandShare, looksLikeVoice } = require('./core/analysis');
 const { energyScore } = require('./core/score');
 const { Session, emptyDay, dayKey } = require('./core/session');
 const { Coach } = require('./core/coach');
+const { SocialDetector } = require('./core/social');
 const { bestHours } = require('./core/insights');
 const { Store } = require('./core/store');
 
@@ -19,6 +20,7 @@ let store;
 let settings;
 const tracker = new Session();
 const coach = new Coach();
+const social = new SocialDetector();
 let lastAudio = null;
 const recentDbfs = [];
 let lastState = null;
@@ -68,29 +70,38 @@ function createTray() {
   );
 }
 
-function buildState(nowMs, snapshot, coachMsg) {
+function buildState(nowMs, snapshot, coachMsg, events, mood) {
   const energy = energyScore({ db: snapshot.recentCount ? snapshot.avgDb5 : null, sitMin: snapshot.sitMin, hour: snapshot.hour });
-  return { now: nowMs, snapshot, energy, coach: coachMsg, settings, micOk: lastAudio != null && nowMs - lastAudio.at < SAMPLE_MAX_AGE_MS };
+  return { now: nowMs, snapshot, energy, coach: coachMsg, events, mood, settings, micOk: lastAudio != null && nowMs - lastAudio.at < SAMPLE_MAX_AGE_MS };
 }
 
 function tick() {
   const nowMs = Date.now();
   let db = null;
   let voice = false;
-  if (lastAudio && nowMs - lastAudio.at < SAMPLE_MAX_AGE_MS) {
+  let levels = [];
+  if (settings.micConsent && lastAudio && nowMs - lastAudio.at < SAMPLE_MAX_AGE_MS) {
     db = dbfsToDb(lastAudio.dbfs, settings.offsetDb);
     voice = looksLikeVoice(voiceBandShare(lastAudio.bins, lastAudio.sampleRate, lastAudio.fftSize), db);
+    levels = (lastAudio.levels || []).map((v) => dbfsToDb(v, settings.offsetDb));
   }
   const idleSec = powerMonitor.getSystemIdleTime();
-  const { snapshot, rolled } = tracker.tick(nowMs, { db, voice, idleSec });
+  const { snapshot: first, rolled } = tracker.tick(nowMs, { db, voice, idleSec });
   if (rolled) store.saveDay(rolled);
+
+  const { events, mood } = social.tick(nowMs, { db, voice, levels });
+  events.forEach((e) => tracker.recordEvent(e.id));
+  const snapshot = events.length ? tracker.snapshot(nowMs, db) : first;
+  for (const e of events.filter((ev) => ev.notify)) {
+    if (settings.notifications && Notification.isSupported()) new Notification({ title: 'Brainacho · clima del grupo', body: e.text, silent: true }).show();
+  }
 
   const msg = coach.evaluate(nowMs, snapshot);
   if (msg && settings.notifications && Notification.isSupported()) {
     new Notification({ title: 'Brainacho', body: msg.text, silent: true }).show();
   }
 
-  lastState = buildState(nowMs, snapshot, msg);
+  lastState = buildState(nowMs, snapshot, msg, events, mood);
   tray.setTitle(`🧠 ${lastState.energy.score}`);
   if (win && !win.isDestroyed() && win.isVisible()) win.webContents.send('state', lastState);
 }
@@ -102,6 +113,13 @@ function setupIpc() {
     if (recentDbfs.length > 5) recentDbfs.shift();
   });
   ipcMain.handle('get-state', () => lastState);
+  ipcMain.handle('get-settings', () => settings);
+  ipcMain.handle('set-mic-consent', (_e, on) => {
+    settings = { ...settings, micConsent: !!on };
+    store.saveSettings(settings);
+    if (!on) lastAudio = null;
+    return settings.micConsent;
+  });
   ipcMain.handle('get-insights', () => bestHours(store.listDays(60)));
   ipcMain.handle('mic-access', async () => {
     if (process.platform !== 'darwin') return true;

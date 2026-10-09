@@ -7,6 +7,31 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div id="onboarding" class="overlay" hidden>
+    <div class="dialog">
+      <div class="logo">🧠</div>
+      <h2>Antes de arrancar</h2>
+      <p class="ask">¿Querés habilitar el micrófono para leer el clima del grupo?</p>
+      <p>Escucho <b>cómo suena</b> el lugar para detectar:</p>
+      <ul class="detects">
+        <li>⚡ Tensiones y voces que suben de tono</li>
+        <li>🔥 Discusiones y peleas innecesarias</li>
+        <li>😂 Risas y buen clima</li>
+        <li>🦗 Silencios incómodos (o sea: chistes malos)</li>
+      </ul>
+      <div class="promise">
+        <b>Lo que NO hago:</b> no grabo audio, no transcribo lo que se dice y no guardo sonido.
+        Solo calculo números (volumen, ritmo, voces) y descarto el audio en el momento.
+        Es una estimación por sonido, no entiende palabras.
+      </div>
+      <p class="muted">Si lo usás en un espacio compartido, avisale a tu equipo: es lo justo.</p>
+      <div class="actions">
+        <button id="ob-yes">Habilitar micrófono</button>
+        <button id="ob-no" class="ghost">Ahora no (solo pausas y ritmo)</button>
+      </div>
+    </div>
+  </div>
+
   <header class="drag">
     <h1>Brainacho <span>termómetro de energía</span></h1>
   </header>
@@ -49,6 +74,21 @@
       </div>
     </section>
 
+    <section class="card" id="climate">
+      <h2>Clima del grupo <small class="muted">(estimado por sonido)</small></h2>
+      <div class="mood-row">
+        <div class="mood"><span id="mood-label">—</span></div>
+        <div class="mood-bar"><i id="mood-fill"></i></div>
+      </div>
+      <ul class="counters">
+        <li><b id="c-laughs">0</b><span>😂 risas</span></li>
+        <li><b id="c-awkward">0</b><span>🦗 silencios incómodos</span></li>
+        <li><b id="c-arguments">0</b><span>🔥 discusiones</span></li>
+        <li><b id="c-tensions">0</b><span>⚡ momentos tensos</span></li>
+      </ul>
+      <p class="muted" id="climate-note">Activá el micrófono en Ajustes para leer el clima del grupo.</p>
+    </section>
+
     <section class="card">
       <h2>Tu día, hora por hora <small class="muted">(actividad)</small></h2>
       <div id="hours" class="hours"></div>
@@ -62,6 +102,7 @@
 
     <section class="card settings">
       <h2>Ajustes</h2>
+      <label><input type="checkbox" id="mic-toggle" /> Micrófono activo (clima del grupo)</label>
       <label><input type="checkbox" id="notif" /> Notificaciones del coach</label>
       <div class="calib">
         <label for="ref">Calibrar: medí con otro sonómetro (ej. app del celu) y poné el valor</label>
